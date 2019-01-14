@@ -19,18 +19,15 @@
 
 require 'ipaddress'
 
-actions :create
 default_action :create
 
-property :service_name, kind_of: String, required: true, name_property: true
-property :checkpoint_key, kind_of: [Array, String], required: false
-property :role_name, kind_of: String, required: true
-property :run_as_user, kind_of: String, required: true, default: lazy { node['windows_failover_cluster']['run_as_user'] }, callbacks: { 'must not be nil' => ->(p) { !p.nil? } }
-property :run_as_password, kind_of: String, required: true, default: lazy { node['windows_failover_cluster']['run_as_password'] }, callbacks: { 'must not be nil' => ->(p) { !p.nil? } }
-property :service_ip, kind_of: String, required: true, callbacks: { 'must be a valid IP address' => ->(ip) { IPAddress.valid?(ip) } }
-property :storage, kind_of: String, required: false
-
-actions :create, :join
+property :service_name, String, name_property: true
+property :checkpoint_key, [Array, String], required: false
+property :role_name, String, required: true
+property :run_as_user, String, required: true, default: lazy { node['windows_failover_cluster']['run_as_user'] }, callbacks: { 'must not be nil' => ->(p) { !p.nil? } }
+property :run_as_password, String, required: true, default: lazy { node['windows_failover_cluster']['run_as_password'] }, callbacks: { 'must not be nil' => ->(p) { !p.nil? } }
+property :service_ip, String, required: true, callbacks: { 'must be a valid IP address' => ->(ip) { IPAddress.valid?(ip) } }
+property :storage, String, required: false
 
 action_class do
   def cluster_contain_node?
