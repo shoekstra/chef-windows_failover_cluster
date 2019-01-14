@@ -1,6 +1,6 @@
 # windows_failover_cluster
 
-Cookbook to install and configure a Windows Failover Cluster Server.
+Chef cookbook to install and configure a Windows Failover Cluster Server.
 
 ## Table of contents
 
@@ -99,7 +99,7 @@ end
 
 #### Examples
 
-Create 
+Create a generic cluster service:
 
 ```ruby
 windows_failover_cluster_generic_service 'Service1' do
@@ -107,7 +107,7 @@ windows_failover_cluster_generic_service 'Service1' do
   service_ip '192.168.10.20'
   storage 'Cluster Disk 1'
   action :create
-endi
+end
 ```
 
 ## Versioning

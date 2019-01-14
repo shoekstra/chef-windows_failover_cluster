@@ -22,12 +22,12 @@ require 'ipaddress'
 actions :create
 default_action :create
 
-property :cluster_name, kind_of: String, required: true, name_property: true
-property :cluster_ip, kind_of: String, required: true, callbacks: { 'must be a valid IP address' => ->(ip) { IPAddress.valid?(ip) } }
-property :install_tools, kind_of: [TrueClass, FalseClass], required: false, default: true
-property :quorum_disk, kind_of: String, required: false
-property :run_as_user, kind_of: String, required: true, default: lazy { node['windows_failover_cluster']['run_as_user'] }, callbacks: { 'must not be nil' => ->(p) { !p.nil? } }
-property :run_as_password, kind_of: String, required: true, default: lazy { node['windows_failover_cluster']['run_as_password'] }, callbacks: { 'must not be nil' => ->(p) { !p.nil? } }
+property :cluster_name, String, name_property: true
+property :cluster_ip, String, required: true, callbacks: { 'must be a valid IP address' => ->(ip) { IPAddress.valid?(ip) } }
+property :install_tools, [TrueClass, FalseClass], required: false, default: true
+property :quorum_disk, String, required: false
+property :run_as_user, String, required: true, default: lazy { node['windows_failover_cluster']['run_as_user'] }, callbacks: { 'must not be nil' => ->(p) { !p.nil? } }
+property :run_as_password, String, required: true, default: lazy { node['windows_failover_cluster']['run_as_password'] }, callbacks: { 'must not be nil' => ->(p) { !p.nil? } }
 
 actions :create, :join
 
