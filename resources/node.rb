@@ -19,17 +19,14 @@
 
 require 'ipaddress'
 
-actions :create
-default_action :create
-
 property :cluster_name, String, name_property: true
 property :cluster_ip, String, required: true, callbacks: { 'must be a valid IP address' => ->(ip) { IPAddress.valid?(ip) } }
-property :install_tools, [TrueClass, FalseClass], required: false, default: true
-property :quorum_disk, String, required: false
+property :install_tools, [TrueClass, FalseClass], default: true
+property :quorum_disk, String
 property :run_as_user, String, required: true, default: lazy { node['windows_failover_cluster']['run_as_user'] }, callbacks: { 'must not be nil' => ->(p) { !p.nil? } }
 property :run_as_password, String, required: true, default: lazy { node['windows_failover_cluster']['run_as_password'] }, callbacks: { 'must not be nil' => ->(p) { !p.nil? } }
 
-actions :create, :join
+default_action :create
 
 action_class do
   def cluster_contain_node?
@@ -44,12 +41,12 @@ action_class do
     powershell_out_with_options('(Get-ClusterQuorum).QuorumResource.Name').stdout.chomp == disk_name
   end
 
-  def install_windows_feature(feature)
-    to_array(feature).each do |f|
+  def install_windows_features(features)
+    features.each do |f|
       windows_feature f do
         install_method :windows_feature_powershell
-        action :install
-      end
+        action :nothing
+      end.run_action(:install)
     end
   end
 
@@ -76,20 +73,23 @@ action :create do
   # Install Failover Clustering feature and PowerShell module
   windows_features = %w(Failover-Clustering RSAT-Clustering-Powershell)
   windows_features << 'RSAT-Clustering-Mgmt' if new_resource.install_tools
-  install_windows_feature(windows_features)
+  install_windows_features(windows_features)
+
   # Create the cluster
   powershell_out_with_options!("New-Cluster -Name #{new_resource.cluster_name} -Node #{node['hostname']} -StaticAddress #{new_resource.cluster_ip} -Force") unless cluster_exist?(new_resource.cluster_name)
   # Add any available disks to the cluster
   powershell_out_with_options('Get-ClusterAvailableDisk | Add-ClusterDisk')
+  # TODO: fix this v
   # Set quorum to use node & disk majority
-  powershell_out_with_options!("Set-ClusterQuorum -NodeAndDiskMajority \'#{new_resource.quorum_disk}\'") unless cluster_quorum_disk?(new_resource.quorum_disk)
+  # powershell_out_with_options!("Set-ClusterQuorum -NodeAndDiskMajority \'#{new_resource.quorum_disk}\'") unless cluster_quorum_disk?(new_resource.quorum_disk)
 end
 
 action :join do
   # Install Failover Clustering feature and PowerShell module
   windows_features = %w(Failover-Clustering RSAT-Clustering-Powershell)
   windows_features << 'RSAT-Clustering-Mgmt' if new_resource.install_tools
-  install_windows_feature(windows_features)
+  install_windows_features(windows_features)
+
   # Join the cluster
   powershell_out_with_options!("Add-ClusterNode -Cluster #{new_resource.cluster_name} -Name #{node['hostname']}") if cluster_exist?(new_resource.cluster_name) && !cluster_contain_node?
 end

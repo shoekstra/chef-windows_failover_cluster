@@ -19,15 +19,15 @@
 
 require 'ipaddress'
 
-default_action :create
-
-property :service_name, String, name_property: true
-property :checkpoint_key, [Array, String], required: false
+property :service_name, [Array, String], name_property: true
+property :checkpoint_key, [Array, String]
 property :role_name, String, required: true
 property :run_as_user, String, required: true, default: lazy { node['windows_failover_cluster']['run_as_user'] }, callbacks: { 'must not be nil' => ->(p) { !p.nil? } }
 property :run_as_password, String, required: true, default: lazy { node['windows_failover_cluster']['run_as_password'] }, callbacks: { 'must not be nil' => ->(p) { !p.nil? } }
 property :service_ip, String, required: true, callbacks: { 'must be a valid IP address' => ->(ip) { IPAddress.valid?(ip) } }
-property :storage, String, required: false
+property :storage, String
+
+default_action :create
 
 action_class do
   def cluster_contain_node?
@@ -62,11 +62,31 @@ action_class do
 end
 
 action :create do
-  generic_service_script = "Add-ClusterGenericServiceRole -ServiceName #{new_resource.service_name} -Name #{new_resource.role_name}"
+  services = to_array(new_resource.service_name)
+
+  # Create cluster role
+  generic_service_script = "Add-ClusterGenericServiceRole -ServiceName '#{services[0]}' -Name '#{new_resource.role_name}'"
   generic_service_script << " -StaticAddress #{new_resource.service_ip}" if new_resource.service_ip
   generic_service_script << " -Storage \'#{new_resource.storage}\'" if new_resource.storage
   generic_service_script << " -CheckpointKey #{to_array(new_resource.checkpoint_key).map(&:inspect).join(', ')}" if new_resource.checkpoint_key
 
-  # Create generic service role
   powershell_out_with_options!(generic_service_script) if cluster_contain_node? && !cluster_resources.include?(service_display_name)
+
+  # If more than one service add these to role
+  if services.length > 1
+    services.each_with_index do |s,i|
+      next if i == 0
+      generic_service_script = "Add-ClusterResource -Name '#{services[i]}' -ResourceType 'Generic Service' -Group '#{new_resource.role_name}'"
+      powershell_out_with_options!(generic_service_script)
+
+      generic_service_script = "Set-ClusterResourceDependency -Resource '#{services[i]}' -Dependency '[#{new_resource.role_name}]'"
+      powershell_out_with_options!(generic_service_script)
+
+      generic_service_script = "Get-ClusterResource -name '#{services[i]}' | Set-ClusterParameter -multiple @{'ServiceName'='#{services[i]}';'UseNetworkName'=1}"
+      powershell_out_with_options!(generic_service_script)
+
+      generic_service_script = "Start-ClusterResource -Name '#{services[i]}'"
+      powershell_out_with_options!(generic_service_script)
+    end
+  end
 end
