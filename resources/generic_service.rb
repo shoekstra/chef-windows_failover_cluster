@@ -54,6 +54,10 @@ action_class do
     powershell_out_with_options("(Get-Service #{new_resource.service_name}).DisplayName").stdout.chomp
   end
 
+  def cluster_group
+    powershell_out_with_options("(Get-ClusterGroup -name #{new_resource.role_name}).Name").stdout.chomp
+  end
+
   def to_array(var)
     var = var.is_a?(Array) ? var : [var]
     var = var.reject(&:nil?)
@@ -64,29 +68,33 @@ end
 action :create do
   services = to_array(new_resource.service_name)
 
-  # Create cluster role
-  generic_service_script = "Add-ClusterGenericServiceRole -ServiceName '#{services[0]}' -Name '#{new_resource.role_name}'"
-  generic_service_script << " -StaticAddress #{new_resource.service_ip}" if new_resource.service_ip
-  generic_service_script << " -Storage \'#{new_resource.storage}\'" if new_resource.storage
-  generic_service_script << " -CheckpointKey #{to_array(new_resource.checkpoint_key).map(&:inspect).join(', ')}" if new_resource.checkpoint_key
+  if cluster_group == ""
+    # Create cluster role
+    generic_service_script = "Add-ClusterGenericServiceRole -ServiceName '#{services[0]}' -Name '#{new_resource.role_name}'"
+    generic_service_script << " -StaticAddress #{new_resource.service_ip}" if new_resource.service_ip
+    generic_service_script << " -Storage \'#{new_resource.storage}\'" if new_resource.storage
+    generic_service_script << " -CheckpointKey #{to_array(new_resource.checkpoint_key).map(&:inspect).join(', ')}" if new_resource.checkpoint_key
 
-  powershell_out_with_options!(generic_service_script) if cluster_contain_node? && !cluster_resources.include?(service_display_name)
+    powershell_out_with_options!(generic_service_script) if cluster_contain_node? && !cluster_resources.include?(service_display_name)
 
-  # If more than one service add these to role
-  if services.length > 1
-    services.each_with_index do |s,i|
-      next if i == 0
-      generic_service_script = "Add-ClusterResource -Name '#{services[i]}' -ResourceType 'Generic Service' -Group '#{new_resource.role_name}'"
-      powershell_out_with_options!(generic_service_script)
+    # If more than one service add these to role
+    if services.length > 1
+      services.each_with_index do |s,i|
+        next if i == 0
+        generic_service_script = "Add-ClusterResource -Name '#{services[i]}' -ResourceType 'Generic Service' -Group '#{new_resource.role_name}'"
+        powershell_out_with_options!(generic_service_script)
 
-      generic_service_script = "Set-ClusterResourceDependency -Resource '#{services[i]}' -Dependency '[#{new_resource.role_name}]'"
-      powershell_out_with_options!(generic_service_script)
+        generic_service_script = "Set-ClusterResourceDependency -Resource '#{services[i]}' -Dependency '[#{new_resource.role_name}]'"
+        powershell_out_with_options!(generic_service_script)
 
-      generic_service_script = "Get-ClusterResource -name '#{services[i]}' | Set-ClusterParameter -multiple @{'ServiceName'='#{services[i]}';'UseNetworkName'=1}"
-      powershell_out_with_options!(generic_service_script)
+        generic_service_script = "Get-ClusterResource -name '#{services[i]}' | Set-ClusterParameter -multiple @{'ServiceName'='#{services[i]}';'UseNetworkName'=1}"
+        powershell_out_with_options!(generic_service_script)
 
-      generic_service_script = "Start-ClusterResource -Name '#{services[i]}'"
-      powershell_out_with_options!(generic_service_script)
+        generic_service_script = "Start-ClusterResource -Name '#{services[i]}'"
+        powershell_out_with_options!(generic_service_script)
+      end
     end
+  else
+    log "Role: #{new_resource.role_name} already exists"
   end
 end

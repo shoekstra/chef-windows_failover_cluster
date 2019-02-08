@@ -22,6 +22,7 @@ require 'ipaddress'
 property :cluster_name, String, name_property: true
 property :cluster_ip, String, required: true, callbacks: { 'must be a valid IP address' => ->(ip) { IPAddress.valid?(ip) } }
 property :install_tools, [TrueClass, FalseClass], default: true
+property :fs_witness, String
 property :quorum_disk, String
 property :run_as_user, String, required: true, default: lazy { node['windows_failover_cluster']['run_as_user'] }, callbacks: { 'must not be nil' => ->(p) { !p.nil? } }
 property :run_as_password, String, required: true, default: lazy { node['windows_failover_cluster']['run_as_password'] }, callbacks: { 'must not be nil' => ->(p) { !p.nil? } }
@@ -39,6 +40,10 @@ action_class do
 
   def cluster_quorum_disk?(disk_name)
     powershell_out_with_options('(Get-ClusterQuorum).QuorumResource.Name').stdout.chomp == disk_name
+  end
+
+  def cluster_quorum_fs_witness?
+    powershell_out_with_options('(Get-ClusterQuorum).QuorumResource.Name').stdout.chomp =~ /File Share Witness/
   end
 
   def install_windows_features(features)
@@ -79,9 +84,16 @@ action :create do
   powershell_out_with_options!("New-Cluster -Name #{new_resource.cluster_name} -Node #{node['hostname']} -StaticAddress #{new_resource.cluster_ip} -Force") unless cluster_exist?(new_resource.cluster_name)
   # Add any available disks to the cluster
   powershell_out_with_options('Get-ClusterAvailableDisk | Add-ClusterDisk')
-  # TODO: fix this v
-  # Set quorum to use node & disk majority
-  # powershell_out_with_options!("Set-ClusterQuorum -NodeAndDiskMajority \'#{new_resource.quorum_disk}\'") unless cluster_quorum_disk?(new_resource.quorum_disk)
+
+  if new_resource.quorum_disk && new_resource.fs_witness
+    Chef::Log.fatal('You provided both quorum_disk and fs_witness, only one is supported!')
+  elsif new_resource.quorum_disk
+    # Set quorum to use node & disk majority
+    powershell_out_with_options!("Set-ClusterQuorum -NodeAndDiskMajority \'#{new_resource.quorum_disk}\'") unless cluster_quorum_disk?(new_resource.quorum_disk)
+  elsif new_resource.fs_witness
+    # Set witness using FileShare
+    powershell_out_with_options!("Set-ClusterQuorum -NodeAndFileShareMajority \'#{new_resource.fs_witness}\'") unless cluster_quorum_fs_witness?
+  end
 end
 
 action :join do
