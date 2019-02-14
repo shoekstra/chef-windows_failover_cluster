@@ -57,16 +57,10 @@ action_class do
   def cluster_group
     powershell_out_with_options("(Get-ClusterGroup -name #{new_resource.role_name}).Name").stdout.chomp
   end
-
-  def to_array(var)
-    var = var.is_a?(Array) ? var : [var]
-    var = var.reject(&:nil?)
-    var
-  end
 end
 
 action :create do
-  services = to_array(new_resource.service_name)
+  services = [new_resource.service_name].flatten
   unless cluster_group == ''
     log "Role: #{new_resource.role_name} already exists" do
       level :debug
@@ -78,7 +72,7 @@ action :create do
   generic_service_script = "Add-ClusterGenericServiceRole -ServiceName '#{services[0]}' -Name '#{new_resource.role_name}'"
   generic_service_script << " -StaticAddress #{new_resource.service_ip}" if new_resource.service_ip
   generic_service_script << " -Storage \'#{new_resource.storage}\'" if new_resource.storage
-  generic_service_script << " -CheckpointKey #{to_array(new_resource.checkpoint_key).map(&:inspect).join(', ')}" if new_resource.checkpoint_key
+  generic_service_script << " -CheckpointKey #{[new_resource.checkpoint_key].flatten.map(&:inspect).join(', ')}" if new_resource.checkpoint_key
 
   powershell_out_with_options!(generic_service_script) if cluster_contain_node? && !cluster_resources.include?(service_display_name)
 
