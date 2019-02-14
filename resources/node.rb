@@ -43,7 +43,15 @@ action_class do
   end
 
   def cluster_quorum_fs_witness?
-    powershell_out_with_options('(Get-ClusterQuorum).QuorumResource.Name').stdout.chomp =~ /File Share Witness/
+    powershell_out_with_options('(Get-ClusterResource "File Share Witness")').stdout.chomp =~ /File Share Witness/
+  end
+
+  def cluster_share_path?(share_path)
+    powershell_out_with_options('(Get-ClusterResource "File Share Witness" | Get-ClusterParameter SharePath).Value').stdout.chomp == share_path
+  end
+
+  def cluster_update_share_path(share_path)
+    powershell_out_with_options("(Get-ClusterResource 'File Share Witness' | Set-ClusterParameter -Name SharePath -Value #{share_path})")
   end
 
   def install_windows_features(features)
@@ -66,12 +74,6 @@ action_class do
   def powershell_out_with_options!(script)
     powershell_out!(script, powershell_out_options)
   end
-
-  def to_array(var)
-    var = var.is_a?(Array) ? var : [var]
-    var = var.reject(&:nil?)
-    var
-  end
 end
 
 action :create do
@@ -90,9 +92,19 @@ action :create do
   elsif new_resource.quorum_disk
     # Set quorum to use node & disk majority
     powershell_out_with_options!("Set-ClusterQuorum -NodeAndDiskMajority \'#{new_resource.quorum_disk}\'") unless cluster_quorum_disk?(new_resource.quorum_disk)
-  elsif new_resource.fs_witness
-    # Set witness using FileShare
-    powershell_out_with_options!("Set-ClusterQuorum -NodeAndFileShareMajority \'#{new_resource.fs_witness}\'") unless cluster_quorum_fs_witness?
+  elsif new_resource.fs_witness # Set witness using FileShare
+    # Check if it matches desired path
+    if cluster_share_path?(new_resource.fs_witness)
+      return
+    else # Different path or no File Share Witness configured at all
+      if cluster_quorum_fs_witness # Check is File Share Witness is configured
+        # Update path to match
+        cluster_update_share_path
+      else
+        # Create the witness from scratch
+        powershell_out_with_options!("Set-ClusterQuorum -NodeAndFileShareMajority \'#{new_resource.fs_witness}\'") 
+      end
+    end
   end
 end
 
