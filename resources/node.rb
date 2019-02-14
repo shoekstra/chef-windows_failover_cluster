@@ -87,21 +87,23 @@ action :create do
 
   if new_resource.quorum_disk && new_resource.fs_witness
     Chef::Log.fatal('You provided both quorum_disk and fs_witness, only one is supported!')
-  elsif new_resource.quorum_disk
-    # Set quorum to use node & disk majority
+  end
+
+  # Configure quorum using node & disk majority
+  if new_resource.quorum_disk
     powershell_out_with_options!("Set-ClusterQuorum -NodeAndDiskMajority \'#{new_resource.quorum_disk}\'") unless cluster_quorum_disk?(new_resource.quorum_disk)
-  elsif new_resource.fs_witness # Set witness using FileShare
-    # Check if it matches desired path
-    if cluster_share_path?(new_resource.fs_witness)
-      return
-    # Different path or no File Share Witness configured at all
-    elsif cluster_quorum_fs_witness # Check is File Share Witness is configured
-      # Update path to match
-      cluster_update_share_path
-    else
-      # Create the witness from scratch
-      powershell_out_with_options!("Set-ClusterQuorum -NodeAndFileShareMajority \'#{new_resource.fs_witness}\'")
-    end
+  end
+
+  # Configure quorum using node & file share majority
+  if new_resource.fs_witness
+    # Nothing to do if cluster is configured to use a file share witness and using our defined witness path
+    return if cluster_share_path?(new_resource.fs_witness)
+
+    # Update witness path if a path is configured but not what we defined
+    cluster_update_share_path if cluster_quorum_fs_witness?
+
+    # If we got this far then a file share witness is not configured so we should configure it
+    powershell_out_with_options!("Set-ClusterQuorum -NodeAndFileShareMajority \'#{new_resource.fs_witness}\'")
   end
 end
 
