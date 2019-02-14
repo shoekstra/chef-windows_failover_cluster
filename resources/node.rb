@@ -51,7 +51,7 @@ action_class do
   end
 
   def cluster_update_share_path(share_path)
-    powershell_out_with_options("(Get-ClusterResource 'File Share Witness' | Set-ClusterParameter -Name SharePath -Value #{share_path})")
+    powershell_out_with_options("(Get-ClusterResource 'File Share Witness' | Set-ClusterParameter -Name SharePath -Value \'#{share_path})\'")
   end
 
   def install_windows_feature(features)
