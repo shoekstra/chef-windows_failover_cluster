@@ -80,17 +80,17 @@ action :create do
   if services.length > 1
     services.each_with_index do |_s, i|
       next if i == 0
-      generic_service_script = "Add-ClusterResource -Name '#{services[i]}' -ResourceType 'Generic Service' -Group '#{new_resource.role_name}'"
-      powershell_out_with_options!(generic_service_script)
+      add_cluster_resource = "Add-ClusterResource -Name '#{services[i]}' -ResourceType 'Generic Service' -Group '#{new_resource.role_name}'"
+      powershell_out_with_options!(add_cluster_resource)
 
-      generic_service_script = "Set-ClusterResourceDependency -Resource '#{services[i]}' -Dependency '[#{new_resource.role_name}]'"
-      powershell_out_with_options!(generic_service_script)
+      set_cluster_resource_dependency = "Set-ClusterResourceDependency -Resource '#{services[i]}' -Dependency '[#{new_resource.role_name}]'"
+      powershell_out_with_options!(set_cluster_resource_dependency)
 
-      generic_service_script = "Get-ClusterResource -name '#{services[i]}' | Set-ClusterParameter -multiple @{'ServiceName'='#{services[i]}';'UseNetworkName'=1}"
-      powershell_out_with_options!(generic_service_script)
+      set_cluster_resource_param = "Get-ClusterResource -name '#{services[i]}' | Set-ClusterParameter -multiple @{'ServiceName'='#{services[i]}';'UseNetworkName'=1}"
+      powershell_out_with_options!(set_cluster_resource_param)
 
-      generic_service_script = "Start-ClusterResource -Name '#{services[i]}'"
-      powershell_out_with_options!(generic_service_script)
+      start_cluster_resource = "Start-ClusterResource -Name '#{services[i]}'"
+      powershell_out_with_options!(start_cluster_resource)
     end
   end
 end
