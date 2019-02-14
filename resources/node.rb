@@ -54,7 +54,7 @@ action_class do
     powershell_out_with_options("(Get-ClusterResource 'File Share Witness' | Set-ClusterParameter -Name SharePath -Value #{share_path})")
   end
 
-  def install_windows_features(features)
+  def install_windows_feature(features)
     windows_feature [features].flatten do
       install_method :windows_feature_powershell
       action :nothing
@@ -78,7 +78,7 @@ action :create do
   # Install Failover Clustering feature and PowerShell module
   windows_features = %w(Failover-Clustering RSAT-Clustering-Powershell)
   windows_features << 'RSAT-Clustering-Mgmt' if new_resource.install_tools
-  install_windows_features(windows_features)
+  install_windows_feature(windows_features)
 
   # Create the cluster
   powershell_out_with_options!("New-Cluster -Name #{new_resource.cluster_name} -Node #{node['hostname']} -StaticAddress #{new_resource.cluster_ip} -Force") unless cluster_exist?(new_resource.cluster_name)
@@ -109,7 +109,7 @@ action :join do
   # Install Failover Clustering feature and PowerShell module
   windows_features = %w(Failover-Clustering RSAT-Clustering-Powershell)
   windows_features << 'RSAT-Clustering-Mgmt' if new_resource.install_tools
-  install_windows_features(windows_features)
+  install_windows_feature(windows_features)
 
   # Join the cluster
   powershell_out_with_options!("Add-ClusterNode -Cluster #{new_resource.cluster_name} -Name #{node['hostname']}") if cluster_exist?(new_resource.cluster_name) && !cluster_contain_node?
