@@ -55,12 +55,10 @@ action_class do
   end
 
   def install_windows_features(features)
-    features.each do |f|
-      windows_feature f do
-        install_method :windows_feature_powershell
-        action :nothing
-      end.run_action(:install)
-    end
+    windows_feature [features].flatten do
+      install_method :windows_feature_powershell
+      action :nothing
+    end.run_action(:install)
   end
 
   def powershell_out_options
