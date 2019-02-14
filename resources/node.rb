@@ -94,14 +94,13 @@ action :create do
     # Check if it matches desired path
     if cluster_share_path?(new_resource.fs_witness)
       return
-    else # Different path or no File Share Witness configured at all
-      if cluster_quorum_fs_witness # Check is File Share Witness is configured
-        # Update path to match
-        cluster_update_share_path
-      else
-        # Create the witness from scratch
-        powershell_out_with_options!("Set-ClusterQuorum -NodeAndFileShareMajority \'#{new_resource.fs_witness}\'") 
-      end
+    # Different path or no File Share Witness configured at all
+    elsif cluster_quorum_fs_witness # Check is File Share Witness is configured
+      # Update path to match
+      cluster_update_share_path
+    else
+      # Create the witness from scratch
+      powershell_out_with_options!("Set-ClusterQuorum -NodeAndFileShareMajority \'#{new_resource.fs_witness}\'")
     end
   end
 end

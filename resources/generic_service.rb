@@ -67,7 +67,7 @@ end
 
 action :create do
   services = to_array(new_resource.service_name)
-  unless cluster_group == ""
+  unless cluster_group == ''
     log "Role: #{new_resource.role_name} already exists" do
       level :debug
     end
@@ -84,7 +84,7 @@ action :create do
 
   # If more than one service add these to role
   if services.length > 1
-    services.each_with_index do |s,i|
+    services.each_with_index do |_s, i|
       next if i == 0
       generic_service_script = "Add-ClusterResource -Name '#{services[i]}' -ResourceType 'Generic Service' -Group '#{new_resource.role_name}'"
       powershell_out_with_options!(generic_service_script)
