@@ -47,6 +47,7 @@ windows_failover_cluster_node 'name' do
   cluster_ip                 String # required when using :create action
   cluster_name               String # default value: 'name' unless specified
   install_tools              true, false # default value: true
+  fs_witness                 String
   quorum_disk                String
   run_as_password            String # default value: node['windows_failover_cluster']['run_as_password']
   run_as_user                String # default value: node['windows_failover_cluster']['run_as_user']
@@ -56,12 +57,22 @@ end
 
 #### Examples
 
-Create a cluster:
+Create a cluster using a quorum disk:
 
 ```ruby
 windows_failover_cluster_node 'Cluster1' do
   cluster_ip '192.168.10.10'
   quorum_disk 'Cluster Disk 1'
+  action :create
+end
+```
+
+Create a cluster using a file share witness:
+
+```ruby
+windows_failover_cluster_node 'Cluster1' do
+  cluster_ip '192.168.10.10'
+  fs_witness '\\\\fileserver\\witness'
   action :create
 end
 ```
@@ -86,7 +97,7 @@ It creates a generic service for a Windows Failover Cluster.
 
 ```ruby
 windows_failover_cluster_generic_service 'name' do
-  service_name               String # default value: 'name' unless specified
+  service_name               [Array, String] # default value: 'name' unless specified
   checkpoint_key             [Array, String]
   role_name                  String # required
   run_as_password            String # default value: node['windows_failover_cluster']['run_as_password']
