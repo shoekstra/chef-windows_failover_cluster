@@ -50,8 +50,12 @@ action_class do
     powershell_out_with_options('(Get-ClusterResource "File Share Witness" | Get-ClusterParameter SharePath).Value').stdout.chomp == share_path
   end
 
-  def cluster_update_share_path(share_path)
-    powershell_out_with_options("(Get-ClusterResource 'File Share Witness' | Set-ClusterParameter -Name SharePath -Value \'#{share_path})\'")
+  def set_quorum_node_majority
+    powershell_out_with_options('Set-ClusterQuorum -NodeMajority')
+  end
+
+  def create_new_fs_witness
+    powershell_out_with_options!("Set-ClusterQuorum -NodeAndFileShareMajority \'#{new_resource.fs_witness}\'")
   end
 
   def install_windows_feature(features)
@@ -96,14 +100,21 @@ action :create do
 
   # Configure quorum using node & file share majority
   if new_resource.fs_witness
-    # Nothing to do if cluster is configured to use a file share witness and using our defined witness path
-    return if cluster_share_path?(new_resource.fs_witness)
-
-    # Update witness path if a path is configured but not what we defined
-    cluster_update_share_path if cluster_quorum_fs_witness?
-
-    # If we got this far then a file share witness is not configured so we should configure it
-    powershell_out_with_options!("Set-ClusterQuorum -NodeAndFileShareMajority \'#{new_resource.fs_witness}\'")
+    if cluster_quorum_fs_witness?
+      if cluster_share_path?(new_resource.fs_witness)
+        # Nothing to do if cluster is configured to use a file share witness and using our defined witness path
+        return
+      else
+        # Update witness path if a path is configured but not what we defined
+        log 'Resetting File Share Witness'
+        set_quorum_node_majority
+        create_new_fs_witness
+      end
+    else
+      # If we got here then a file share witness is not configured so we should configure it
+      log 'Create new FS witness'
+      create_new_fs_witness
+    end
   end
 end
 
