@@ -55,6 +55,7 @@ action_class do
   end
 
   def create_new_fs_witness
+    log "Configuring File Share Witness: #{new_resource.fs_witness}"
     powershell_out_with_options!("Set-ClusterQuorum -NodeAndFileShareMajority \'#{new_resource.fs_witness}\'")
   end
 
@@ -101,20 +102,12 @@ action :create do
   # Configure quorum using node & file share majority
   if new_resource.fs_witness
     if cluster_quorum_fs_witness?
-      if cluster_share_path?(new_resource.fs_witness)
-        # Nothing to do if cluster is configured to use a file share witness and using our defined witness path
-        return
-      else
-        # Update witness path if a path is configured but not what we defined
-        log 'Resetting File Share Witness'
-        set_quorum_node_majority
-        create_new_fs_witness
-      end
-    else
-      # If we got here then a file share witness is not configured so we should configure it
-      log 'Create new FS witness'
-      create_new_fs_witness
+      # Remove File Share Witness if it is not configured with the value we provided
+      log 'Resetting File Share Witness' unless cluster_share_path?(new_resource.fs_witness)
+      set_quorum_node_majority unless cluster_share_path?(new_resource.fs_witness)
     end
+    # If we got here then a file share witness is not configured so we should configure it
+    create_new_fs_witness unless cluster_quorum_fs_witness?
   end
 end
 
